@@ -6,7 +6,7 @@ const Helper = require('../Structures/Helper')
 const Command = require('../Structures/Command')
 const { Stats } = require('../lib')
 const { ICharacter, Character } = require('@shineiichijo/marika');
-
+const axios  = require('axios')
 
 module.exports = class MessageHandler {
     /**
@@ -24,90 +24,73 @@ module.exports = class MessageHandler {
         this.helper = helper
     }
 
-//     loadCharaEnabledGroups = async ()=> {
-//        const getGroups = await this.client.groupFetchAllParticipating()
-//     //     const groups = Object.entries(getGroups)
-//     //         .slice(0)
-//     //         .map((entry) => entry[1])
-//     //     let lengthOfCharacter = this.helper.DB.group.CharacterData
-//     //     // const groups = !this.groups ? await this.client.groupFetchAllParticipating() : this.groups
-//     //     if (!groups) return void null // add this check
-//     //     for (const group of groups) {
-//     //         lengthOfCharacter.push(group)
-//     //     }
-//     //     this.client.log(
-//     //         `Successfully loaded ${chalk.blueBright(`${lengthOfCharacter.length}`)} ${
-//     //             lengthOfCharacter.length > 1 ? 'groups' : 'group'
-//     //         } which has enabled chara`
-//     //     )
-//     //     await this.spawnChara()
-//     // }
-//      let getAllGroups = Object.keys(await this.client.groupFetchAllParticipating());
+  spawnChara = async () => {
+  try {
+    setInterval(async () => {
+      const gc = '120363110747479694@g.us';
+      const stars = ["⭐️⭐️⭐️⭐️⭐️", "⭐️⭐️⭐️⭐️", "⭐️⭐️⭐️", "⭐️⭐️", "⭐️", "⭐️⭐️", "⭐️", "⭐️⭐️", "⭐️", "⭐️⭐️⭐️⭐️", "⭐️⭐️⭐️"];
+      const count = stars[Math.floor(Math.random() * stars.length)];
+      const price = Math.floor(Math.random() * (50000 - 25000) + 25000);
+      
+      let data, imageData;
+      try {
+        const response = await axios.get(`https://reina-api.vercel.app/api/mwl/random`);
+        data = response.data.data;
+        imageData = data.image;
+      } catch (error) {
+        console.error('Failed to fetch character data:', error);
+        return;
+      }
+      
+      try {
+        await this.helper.DB.group.updateOne({ jid: gc }, { price, chara: data.slug, wild: imageData });
+      } catch (error) {
+        console.error('Failed to update database:', error);
+        return;
+      }
+      
+      let des = data.description ? data.description.substring(0, 100) : "none";
+      console.log('send', data.slug);
+      
+      const buttons = [
+        {
+            buttonId: 'id1',
+            buttonText: { displayText: `${process.env.PREFIX}claim` },
+            type: 1
+        }
+    ]
+      const message = {
+        image: {url: imageData},
+        caption: `A Claimable character appeared!\n\🏮 *Name: ${data.name}*\n\n *⭐ Stars: ${count}*\n\n📑 *About:* ${des}\n\n*Source:* ${data.appearances[0].name}\n\n*Price:* ${price}\n\n\nUse ${this.helper.config.prefix}claim to claim the character`,
+        footer: `${process.env.NAME}`,
+        buttons: buttons,
+        headerType: 4
+    };
+      
+      try {
+        await this.client.sendMessage(gc, message);
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        return;
+      }
+      
+      setTimeout(async () => {
+        try {
+          await this.helper.DB.group.updateOne({ jid: gc }, { $unset: { chara: 1 }, price: 0 });
+          console.log("deleted");
+        } catch (error) {
+          console.error('Failed to delete character data:', error);
+        }
+      }, 3 * 60 * 1000); //  3 * 60 * 1000) #will delete after 3 minutes
+    }, 10 * 60 * 1000); //  1 * 60 * 1000) #will send after 1 minute
+  } catch (error) {
+    console.error('Unhandled error:', error);
+  }
+}
 
-//     //  let characterOfMe = this.helper.DB.group.CharacterData
-//     const characterOfMe = this.helper.DB.characterData
 
 
-//     const groups = await getAllGroups
-//     for (const group of groups) {
-//         const data = await this.helper.DB.getGroup(group)
-//         if (!data.chara) continue
-//         this.helper.DB.group.CharacterData.push(group)
-//     }
-//     this.client.log(
-//         `Successfully loaded ${chalk.blueBright(`${characterOfMe.length}`)} ${
-//             characterOfMe.length > 1 ? 'groups' : 'group'
-//         } which has enabled chara`
-//     )
-//     await this.spawnChara()
-// }
-
-   spawnChara = async () => {
-        schedule('*/1 * * * *', async () => {
-            if (this.helper.DB.group.CharacterData.length < 1) return void null
-            for (let i = 0; i < this.helper.DB.group.CharacterData.length; i++) {
-                setTimeout(async () => {
-                    const { chara, bot } = await this.helper.DB.getGroup(this.helper.DB.group.wild[i])
-                    if (bot !== 'all' && bot !== process.env.NAME.split(' ')[0]) return void null
-                    if (!chara) return void null
-                    await new Character()
-                        .getRandomCharacter()
-                        .then(async (chara) => {
-                            const price = Math.floor(Math.random() * (50000 - 25000) + 25000)
-                            let source = ''
-                            await new Character()
-                                .getCharacterAnime(chara.mal_id)
-                                .then((res) => (source = res.data[0].anime.title))
-                                .catch(async () => {
-                                    await new Character()
-                                        .getCharacterManga(chara.mal_id.toString())
-                                        .then((res) => (source = res.data[0].manga.title))
-                                        .catch(() => {})
-                                })
-                            const buffer = await this.helper.utils.getBuffer(chara.images.jpg.image_url)
-                            const buttons = [
-                                {
-                                    buttonId: 'id1',
-                                    buttonText: { displayText: `${process.env.PREFIX}claim` },
-                                    type: 1
-                                }
-                            ]
-                            const buttonMessage = {
-                                image: buffer,
-                                caption: `*A claimable character Appeared!*\n\n🏮 *Name: ${chara.name}*\n\n📑 *About:* ${chara.about}\n\n💮 *Source: ${source}*\n\n🪙 *Price: ${price}*\n\n*[Use ${this.client.config.prefix}claim to have this character in your gallery]*`,
-                                footer: '',
-                                buttons: buttons,
-                                headerType: 4
-                            }
-                            this.charaResponse.set(this.helper.DB.group.CharacterData[i], { price, data: chara })
-                            await this.client.sendMessage(this.helper.DB.group.CharacterData[i], buttonMessage)
-                        })
-                        .catch(() => {})
-                }, (i + 1) * 20 * 1000)
-            }
-        })
-    }
-
+    
     /**
      * @param {Message} m
      * @returns {Promise<void>}

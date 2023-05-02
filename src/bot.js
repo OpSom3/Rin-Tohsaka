@@ -3,6 +3,7 @@ const { default: Baileys, DisconnectReason, jidDecode, fetchLatestBaileysVersion
 const P = require('pino')
 const { Boom } = require('@hapi/boom')
 const qr = require('qr-image')
+const axios = require('axios')
 const mongoose = require('mongoose')
 const Message = require('./Structures/Message')
 const MessageHandler = require('./Handlers/Message')
@@ -28,7 +29,7 @@ const start = async () => {
     }
 
     await mongoose.connect(process.env.MONGO_URI)
-
+    
     helper.log('Connected to the Database')
 
     const { useAuthFromDatabase } = new Auth(helper.config.session)
@@ -56,6 +57,7 @@ const start = async () => {
     client.ev.on('messages.upsert', async ({ messages }) => {
         const M = await new Message(messages[0], client).simplifyMessage()
         await messageHandler.handleMessage(M)
+        
     })
 
     client.decodeJid = (jid) => {
@@ -92,17 +94,18 @@ const start = async () => {
                 helper.log('Disconnected')
             }
         }
-        // if (connection === 'open') {
-        //     messageHandler.groups =  client.groupFetchAllParticipating()
-        //      messageHandler.loadCharaEnabledGroups()
-        // }
+        
+
+
         if (connection === 'connecting') {
             helper.state = 'connecting'
             helper.log('Connecting to WhatsApp...')
         }
         if (connection === 'open') {
+            
             helper.state = 'open'
             helper.log('Connected to WhatsApp')
+             messageHandler.spawnChara()
         }
     })
 

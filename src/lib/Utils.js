@@ -6,7 +6,7 @@ const { exec } = require('child_process')
 const child_process = require('child_process')
 const { readFile, unlink, writeFile } = require('fs-extra')
 const { Configuration, OpenAIApi } = require('openai')
-const fs = require('fs-extra')
+let fs = require('fs')
 const sleep =  (ms) =>{
     return new Promise((resolve) =>{ setTimeout (resolve, ms)})
     
@@ -79,6 +79,29 @@ getCodeImage = async (code) => {
         return result;
       }
 
+
+      /**
+       * @param {string} url 
+       * @param {object} [options]
+       * @returns {Promise}
+       */
+
+      fetchJson = async (url, options) => {
+        try {
+            options ? options : {}
+            const res = await axios({
+                method: 'GET',
+                url: url,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36'
+                },
+                ...options
+            })
+            return res.data
+        } catch (err) {
+            return err
+        }
+    }
     /**
      * @param {string} url
      * @returns {Promise<Buffer>}
@@ -297,27 +320,22 @@ getCodeImage = async (code) => {
           )
         );
       };
-
-      /**
- * @param {Buffer} image
- * @returns {Promise<Buffer | string>}
+/**
+ * @param {Buffer} image - Buffer containing the image data
+ * @returns {Promise<Buffer>} A Promise that resolves to a Buffer containing the processed GIF data
  */
+buffergif = async (image) => {
+    const filename = `${Math.random().toString(36)}`
+    await fs.writeFileSync(`./assets/${filename}.gif`, image)
+    child_process.exec(
+        `ffmpeg -i ./assets/${filename}.gif -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" ./assets/${filename}.mp4`
+    ) 
+    await sleep(4000)
+    const buffer5 = await fs.readFileSync(`./assets/${filename}.mp4`)
+    Promise.all([unlink(`./${filename}.mp4`), unlink(`./assets/${filename}.gif`)])
+    return buffer5
+}
 
-      buffergif = async (image) => {
-        const filename = `${Math.random().toString(36)}`;
-        await fs.writeFileSync(`${filename}.mp4`, image);
-        await exec(
-          `ffmpeg -i ${filename}.mp4 -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" bin/${filename}.mp4`
-        );
-        await sleep(4000);
-      
-        var buffer5 =  fs.readFileSync(`${filename}.gif`);
-        Promise.all([
-          unlink(`${filename}.gif`),
-          unlink(`${filename}.mp4`),
-        ]);
-        return buffer5;
-      };
 
     /**
      * @param {Buffer} gif
